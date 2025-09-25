@@ -69,6 +69,20 @@ if __name__ == '__main__':
                               "folder. Smart uses copy for first instance of "
                               "a file and hardlinks to that first one for "
                               "successive files."))
+    
+    # Valid uses of this flag include: -fe, -fe true, -fe yes, --flatten_extra_files=1
+    parser.add_argument("-fe", "--flatten_extra_files",
+                        dest="flatten_extras",
+                        default=False,
+                        # nargs and const below allow us to accept the
+                        # zero-argument form of --flatten_extra_files
+                        nargs="?",
+                        const=True,
+                        type='bool',
+                        help=("Dump all extra files into the top level of "
+                              "the extras folder, appending a partial hash "
+                              "if the names collide.  This option has no "
+                              "effect if --extra_files_folder is not set."))
 
     # Valid uses of this flag include: -s, -s true, -s yes, --skip_existing=1
     parser.add_argument("-s", "--skip_existing",
@@ -303,8 +317,16 @@ def parse_folder(source_folder, db, output_folder, extras_folder):
 
                         # preserve the subdirectory structure of the extra
                         # file in the extras directory
-                        new_path = os.path.join(extras_folder, dirpath)
-                        new_file = os.path.join(extras_folder, dirpath, os.path.split(info['filename'])[-1])
+                        # os.path.relpath is necessary to prevent weird issues with certain paths
+                        # such as placing the extra files in a parent directory
+                        if not ARGS.flatten_extras_folder:
+                            new_path = os.path.join(extras_folder, os.path.relpath(dirpath, start=source_folder))
+                            new_file = os.path.join(extras_folder, os.path.relpath(dirpath, start=source_folder), os.path.split(info['filename'])[-1])
+                        else:
+                            new_path = extras_folder
+                            new_file = os.path.join(extras_folder, f'{h[0:8]}_{os.path.split(info['filename'][-1])}')
+
+
                         if (not ARGS.skip_existing or not
                                 os.path.exists(new_file)):
                             if info['archive']:
